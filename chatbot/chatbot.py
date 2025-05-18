@@ -9,6 +9,8 @@ from agents import (
     Runner,
 )
 from typing import cast
+import json
+
 
 
 @cl.on_chat_start
@@ -26,7 +28,7 @@ async def start():
             model=secrets.gemini_api_model, openai_client=external_client
         ),
     )
-
+    
     cl.user_session.set("agent", agent)
 
     cl.user_session.set("chat_history", [])
@@ -39,13 +41,15 @@ async def start():
 @cl.on_message
 async def main(msg: cl.Message):
 
-    agent = cast(Agent, cl.user_session.get("agent"))
 
+    agent = cast(Agent, cl.user_session.get("agent"))
+    
+    
     chat_history: list = cl.user_session.get("chat_history") or []
 
     chat_history.append(
         {
-            "role": "user",
+            "role": "system",
             "content": msg.content,
         }
     )
@@ -59,3 +63,10 @@ async def main(msg: cl.Message):
     message = cl.Message(content=result.final_output)
 
     await message.send()
+
+@cl.on_chat_end
+async def end():
+    history = cl.user_session.get("history") or []
+    
+    with open("chat_history.json", "w") as f:
+        json.dump(history, f, indent=4)
