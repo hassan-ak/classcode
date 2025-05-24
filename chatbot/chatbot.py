@@ -1,72 +1,73 @@
 import chainlit as cl
-from rich import print
-from my_secrets import Secrets
 from agents import (
     Agent,
-    OpenAIChatCompletionsModel,
-    AsyncOpenAI,
-    set_tracing_disabled,
     Runner,
+    AsyncOpenAI,
+    OpenAIChatCompletionsModel,
+    set_tracing_disabled,
 )
+from my_secrets import Secrets
 from typing import cast
 import json
 
+secrets = Secrets()
 
 
 @cl.on_chat_start
 async def start():
-    secrets = Secrets()
+    msg = cl.Message(content="Welcome to the chatbot!, I am here to help you.")
+    await msg.send()
+
     external_client = AsyncOpenAI(
         base_url=secrets.gemini_api_url,
         api_key=secrets.gemini_api_key,
     )
     set_tracing_disabled(True)
+
     agent = Agent(
-        name="Assistant",
-        instructions="Answer the question as best as you can.",
+        name="Chatbot",
+        instructions="You are a helpful assistant. Which can precisely answer questions in a single sentence.",
         model=OpenAIChatCompletionsModel(
-            model=secrets.gemini_api_model, openai_client=external_client
+            openai_client=external_client,
+            model=secrets.gemini_api_model,
         ),
     )
-    
+
     cl.user_session.set("agent", agent)
-
     cl.user_session.set("chat_history", [])
-
-    await cl.Message(
-        content="Gemini API Chatbot",
-    ).send()
 
 
 @cl.on_message
-async def main(msg: cl.Message):
-
+async def main(message: cl.Message):
+    msg = cl.Message(content="Thinking...")
+    await msg.send()
 
     agent = cast(Agent, cl.user_session.get("agent"))
-    
-    
     chat_history: list = cl.user_session.get("chat_history") or []
-
     chat_history.append(
         {
-            "role": "system",
-            "content": msg.content,
+            "role": "user",
+            "content": message.content,
         }
     )
 
-    result = Runner.run_sync(starting_agent=agent, input=chat_history)
-    
-    cl.user_session.set("chat_history",result.to_input_list())
-    
-    print(chat_history)
-
-    message = cl.Message(content=result.final_output)
-
-    await message.send()
+    try:
+        result = Runner.run_sync(
+            starting_agent=agent,
+            input=chat_history,
+        )
+        msg.content = result.final_output
+        cl.user_session.set("chat_history", result.to_input_list())
+        await msg.update()
+    except Exception as e:
+        msg.content = (
+            "An error occurred while processing your request. Please try again."
+        )
+        await msg.update()
 
 @cl.on_chat_end
-async def end():
-    history = cl.user_session.get("history") or []
-    
+def end():
+    chat_history: list = cl.user_session.get("chat_history") or []
     with open("chat_history.json", "w") as f:
-        json.dump(history, f, indent=4)
+        json.dump(chat_history, f, indent=4)
+    
