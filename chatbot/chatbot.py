@@ -9,6 +9,7 @@ from agents import (
 from my_secrets import Secrets
 from typing import cast
 import json
+from openai.types.responses import ResponseTextDeltaEvent
 
 secrets = Secrets()
 
@@ -26,7 +27,7 @@ async def start():
 
     agent = Agent(
         name="Chatbot",
-        instructions="You are a helpful assistant. Which can precisely answer questions in a single sentence.",
+        instructions="You are a helpful assistant.",
         model=OpenAIChatCompletionsModel(
             openai_client=external_client,
             model=secrets.gemini_api_model,
@@ -39,7 +40,7 @@ async def start():
 
 @cl.on_message
 async def main(message: cl.Message):
-    msg = cl.Message(content="Thinking...")
+    msg = cl.Message(content="")
     await msg.send()
 
     agent = cast(Agent, cl.user_session.get("agent"))
@@ -52,12 +53,22 @@ async def main(message: cl.Message):
     )
 
     try:
-        result = Runner.run_sync(
+        result = Runner.run_streamed(
             starting_agent=agent,
             input=chat_history,
         )
-        msg.content = result.final_output
-        cl.user_session.set("chat_history", result.to_input_list())
+        
+        async for chunk in result.stream_events():
+            if chunk.type == "raw_response_event" and isinstance(chunk.data, ResponseTextDeltaEvent):
+                await msg.stream_token(chunk.data.delta)        
+        
+        chat_history.append(
+            {
+                "role": "assistant",
+                "content": msg.content,
+            }
+        )
+        cl.user_session.set("chat_history", chat_history)
         await msg.update()
     except Exception as e:
         msg.content = (
