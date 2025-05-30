@@ -43,8 +43,7 @@ async def main() -> None:
     
     async for chunk in result.stream_events():
         if chunk.type =="raw_response_event" and isinstance(chunk.data, ResponseTextDeltaEvent):
-            print(chunk)
-            # print(chunk.data.delta, end="", flush=True)
+            print(chunk.data.delta, end="", flush=True)
 
 
 def run():
