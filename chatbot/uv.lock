@@ -280,6 +280,7 @@ dependencies = [
     { name = "chainlit" },
     { name = "openai-agents" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "rich" },
 ]
 
@@ -288,6 +289,7 @@ requires-dist = [
     { name = "chainlit", specifier = ">=2.5.5" },
     { name = "openai-agents", specifier = ">=0.0.16" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
+    { name = "requests", specifier = ">=2.32.3" },
     { name = "rich", specifier = ">=14.0.0" },
 ]
 
